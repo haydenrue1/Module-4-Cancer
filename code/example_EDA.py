@@ -29,7 +29,7 @@ print(metadata_df.describe())
 # %%
 # Subset the data for a specific cancer type
 ####################################################
-cancer_type = 'BRCA'  # Breast Invasive Carcinoma
+cancer_type = 'SKCM'  # Breast Invasive Carcinoma
 
 # From metadata, get the rows where "cancer_type" is equal to the specified cancer type
 # Then grab the index of this subset (these are the sample IDs)
@@ -42,7 +42,7 @@ BRCA_data = data[cancer_samples]
 # %%
 # Subset by index (genes)
 ####################################################
-desired_gene_list = ['TP53', 'BRCA1', 'BRCA2', 'EGFR', 'MYC']
+desired_gene_list = ['MMP9', 'MMP2']
 gene_list = [gene for gene in desired_gene_list if gene in BRCA_data.index]
 for gene in desired_gene_list:
     if gene not in gene_list:
