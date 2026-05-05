@@ -14,9 +14,9 @@ from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
 from sklearn.metrics import mean_squared_error, r2_score
 
 
-
+# ---------------------------
 # Load and align data
-
+# ---------------------------
 
 data = pd.read_csv(
     '/Users/haydenrue/Desktop/Comp BME/Module-4-Cancer/data/TRAINING_SET_GSE62944_subsample_log2TPM.csv',
@@ -28,7 +28,7 @@ metadata = pd.read_csv(
     index_col=0
 )
 
-# Match patient IDs between datasets
+# Match patient IDs
 data_ids = data.columns.str[:12]
 meta_ids = metadata.index.str[:12]
 
@@ -40,30 +40,30 @@ common_ids = set(data_ids).intersection(meta_ids)
 data = data[[data_map[i] for i in common_ids]]
 metadata = metadata.loc[[meta_map[i] for i in common_ids]]
 
-# Filter melanoma samples
+# Filter melanoma
 metadata = metadata[metadata['cancer_type'] == 'SKCM']
 data = data[metadata.index]
 
-# Select most variable genes and include MMP9
+# Select genes
 gene_var = data.var(axis=1)
 top_genes = gene_var.sort_values(ascending=False).head(150).index
 genes = list(set(top_genes).union({'MMP9'}))
 
 gene_data = data.loc[genes]
 
-# Merge gene + clinical data
+# Merge
 df = gene_data.T.merge(metadata, left_index=True, right_index=True)
 
-# Drop missing values
+# Drop missing
 df = df.dropna(subset=[
     'MMP9', 'ajcc_metastasis_pathologic_pm',
     'ajcc_pathologic_tumor_stage', 'OS', 'OS.time'
 ])
 
 
-
+# ---------------------------
 # Clinical association plots
-
+# ---------------------------
 
 sns.boxplot(data=df, x='ajcc_metastasis_pathologic_pm', y='MMP9')
 plt.title("MMP9 vs Metastasis")
@@ -83,8 +83,9 @@ plt.title("MMP9 vs Survival Time")
 plt.show()
 
 
+# ---------------------------
 # PCA
-
+# ---------------------------
 
 X = gene_data.T
 
@@ -104,9 +105,43 @@ plt.title("PCA colored by MMP9")
 plt.show()
 
 
+# ---------------------------
+# NEW: PCA loadings (INTERPRETATION)
+# ---------------------------
 
+loadings = pd.DataFrame(
+    pca.components_.T,
+    index=gene_data.index,
+    columns=['PC1', 'PC2']
+)
+
+# Top contributing genes
+top_pc1 = loadings['PC1'].abs().sort_values(ascending=False).head(10)
+top_pc2 = loadings['PC2'].abs().sort_values(ascending=False).head(10)
+
+print("\nTop 10 genes driving PC1:\n", top_pc1)
+print("\nTop 10 genes driving PC2:\n", top_pc2)
+
+# MMP9 contribution
+print("\nMMP9 Loadings:")
+print(loadings.loc['MMP9'])
+
+
+# ---------------------------
+# NEW: Optional visualization (good for slides)
+# ---------------------------
+
+top_pc1.plot(kind='bar')
+plt.title("Top Genes Contributing to PC1")
+plt.ylabel("Loading Magnitude")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+
+# ---------------------------
 # KMeans clustering
-
+# ---------------------------
 
 kmeans = KMeans(n_clusters=3, random_state=42)
 pca_df['cluster'] = kmeans.fit_predict(X_scaled)
@@ -118,20 +153,9 @@ plt.show()
 print(pca_df.groupby('cluster')['MMP9'].mean())
 
 
-# PCA loadings (which genes drive variation)
-loadings = pd.DataFrame(
-    pca.components_.T,
-    columns=['PC1', 'PC2'],
-    index=genes
-)
-
-print("Top PC1 genes:\n", loadings['PC1'].sort_values(ascending=False).head(10))
-print("MMP9 loading:\n", loadings.loc['MMP9'])
-
-
-
-# Classification model (survival status)
-
+# ---------------------------
+# Classification model
+# ---------------------------
 
 X_model = gene_data.T.loc[df.index].copy()
 y = df['OS'].astype(int)
@@ -165,7 +189,6 @@ plt.ylabel("True Positive Rate")
 plt.title("ROC Curve")
 plt.show()
 
-# Error
 print("Train Error:", 1 - accuracy_score(y_train, y_pred_train))
 print("Validation Error:", 1 - accuracy_score(y_val, y_pred_val))
 
@@ -175,8 +198,9 @@ print("Top features:\n", importances.sort_values(ascending=False).head(10))
 print("MMP9 importance:", importances['MMP9'])
 
 
-# Regression model (survival time)
-
+# ---------------------------
+# Regression model
+# ---------------------------
 
 y_time = df['OS.time']
 
@@ -200,3 +224,9 @@ print("Validation R^2:", r2_score(y_val_r, y_pred_val_r))
 importances_r = pd.Series(reg.feature_importances_, index=X_model.columns)
 print("Top regression features:\n", importances_r.sort_values(ascending=False).head(10))
 print("MMP9 importance (regression):", importances_r['MMP9'])
+
+plt.scatter(y_val_r, y_pred_val_r)
+plt.xlabel("Actual Survival Time")
+plt.ylabel("Predicted Survival Time")
+plt.title("Predicted vs Actual Survival Time")
+plt.show()
